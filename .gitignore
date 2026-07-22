@@ -4,3 +4,6 @@ downloads/
 test_batch.zip
 *.zip
 .DS_Store
+all_cookies.txt
+cookies.txt
+*.cookies.txt
