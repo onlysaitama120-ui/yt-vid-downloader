@@ -38,6 +38,7 @@ button {
     border: none;
     border-radius: 999px;
     cursor: pointer;
+    touch-action: manipulation;
 }
 
 button:disabled {
@@ -48,6 +49,7 @@ button:disabled {
 .app-shell {
     max-width: 1180px;
     margin: 0 auto;
+    padding: 0 12px;
 }
 
 .hero-panel {
@@ -204,6 +206,7 @@ select {
 .results-grid {
     display: grid;
     gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
 }
 
 .result-card {
@@ -419,11 +422,24 @@ display: block;
     .result-card {
         grid-template-columns: 1fr;
     }
+
+    .preview-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .preview-body {
+        gap: 18px;
+    }
 }
 
 @media (max-width: 720px) {
     body {
-        padding: 16px;
+        padding: 12px;
+    }
+
+    .app-shell {
+        padding: 0;
     }
 
     .hero-panel,
@@ -431,15 +447,41 @@ display: block;
     .result-panel,
     .preview-panel,
     .batch-panel {
-        padding: 22px;
+        padding: 20px;
+        border-radius: 22px;
     }
 
     .hero-actions,
     .search-input-row,
     .batch-input-row,
-    .batch-actions {
+    .batch-actions,
+    .action-row {
         flex-direction: column;
         align-items: stretch;
+    }
+
+    .hero-actions {
+        justify-content: flex-start;
+    }
+
+    .hero-copy,
+    .hint,
+    .subtext,
+    .panel-heading h2 {
+        font-size: 0.98rem;
+    }
+
+    #queryInput,
+    #searchButton,
+    #batchLinks,
+    #addLinksButton,
+    #downloadButton,
+    #addBatchButton,
+    #downloadBatchButton,
+    #clearBatchButton,
+    .field-group select,
+    .field-group input {
+        width: 100%;
     }
 
     #searchButton,
@@ -448,6 +490,28 @@ display: block;
     #addBatchButton,
     #downloadBatchButton,
     #clearBatchButton {
+        min-width: auto;
+    }
+
+    .result-card img {
+        width: 100%;
+        height: auto;
+    }
+
+    .preview-body {
+        gap: 20px;
+    }
+
+    .preview-controls {
+        width: 100%;
+    }
+
+    .batch-actions {
+        justify-content: stretch;
+        align-items: stretch;
+    }
+
+    .batch-actions .field-group {
         width: 100%;
     }
 }
