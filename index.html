@@ -1,63 +1,120 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>YouTube Downloader Pro</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-    <div class="container">
-        <h1>🎬 YouTube Downloader Pro</h1>
+    <div class="app-shell">
+        <header class="hero-panel">
+            <div>
+                <p class="eyebrow">Grab videos the easy way.</p>
+                <h1>YouTube Downloader</h1>
+                <p class="hero-copy">Search for a clip, paste a link, and save video or audio in a couple of clicks — no fluff, just results.</p>
+            </div>
+            <div class="hero-actions">
+                <button class="hero-button" onclick="scrollToSection('downloadArea')">Get Started</button>
+                <button class="ghost-button" onclick="scrollToSection('batchArea')">Open Batch</button>
+            </div>
+        </header>
 
-        <!-- Search Section -->
-        <div class="search-section">
-            <input type="text" id="searchInput" placeholder="Search for videos...">
-            <button onclick="searchVideos()">🔍 Search</button>
-        </div>
+        <main class="content" id="downloadArea">
+            <section class="search-card">
+                <div class="search-input-row">
+                    <input id="queryInput" type="text" placeholder="Search videos or paste a YouTube link" autofocus />
+                    <button id="searchButton">Search</button>
+                </div>
+                <p class="hint">Tip: paste multiple links in the batch box below or search by title/keyword to add content fast.</p>
+            </section>
 
-        <!-- Search Results -->
-        <div id="results"></div>
+            <section class="result-panel">
+                <div class="panel-heading">
+                    <h2>Search results</h2>
+                    <span id="resultCount">No videos yet</span>
+                </div>
+                <div id="results" class="results-grid"></div>
+            </section>
 
-        <!-- Download Options -->
-        <div id="downloadSection" style="display: none;">
-            <div class="download-container">
-                <h3 id="videoTitle">Video Title</h3>
-                <img id="videoThumbnail" src="" alt="Thumbnail">
-                
-                <div class="options-grid">
-                    <div class="option-group">
-                        <label>Type:</label>
-                        <select id="typeSelect">
-                            <option value="video">🎬 Video (MP4)</option>
-                            <option value="audio">🎵 Audio (MP3)</option>
+            <section id="previewPanel" class="preview-panel hidden">
+                <div class="preview-header">
+                    <div>
+                        <p class="section-label">Selected video</p>
+                        <h2 id="videoTitle">Loading...</h2>
+                        <p id="videoChannel" class="subtext"></p>
+                    </div>
+                    <span id="durationTag" class="badge"></span>
+                </div>
+
+                <div class="preview-body">
+                    <img id="videoThumbnail" alt="Video thumbnail" />
+                    <div class="preview-controls">
+                        <div class="field-group">
+                            <label for="typeSelect">Download format</label>
+                            <select id="typeSelect">
+                                <option value="video">Video (MP4)</option>
+                                <option value="audio">Audio (MP3)</option>
+                            </select>
+                        </div>
+                        <div class="field-group">
+                            <label for="qualitySelect">Quality</label>
+                            <select id="qualitySelect"></select>
+                        </div>
+                        <div class="action-row">
+                            <button id="downloadButton" class="primary-button">Grab It</button>
+                            <button id="addBatchButton" class="secondary-button">Queue to Batch</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="batch-panel" id="batchArea">
+                <div class="panel-heading">
+                    <div>
+                        <h2>Batch Download</h2>
+                        <p class="subtext">Drop links here or add videos from search. Download everything in one ZIP.</p>
+                    </div>
+                    <span class="badge" id="batchCount">0 items</span>
+                </div>
+
+                <div class="batch-input-row">
+                    <textarea id="batchLinks" rows="4" placeholder="Paste multiple YouTube links, one per line"></textarea>
+                    <button id="addLinksButton" class="secondary-button">Add Links</button>
+                </div>
+
+                <div id="batchList" class="batch-list"></div>
+
+                <div class="batch-actions">
+                    <div class="field-group inline-group">
+                        <label for="batchTypeSelect">Batch format</label>
+                        <select id="batchTypeSelect">
+                            <option value="video">Video (MP4)</option>
+                            <option value="audio">Audio (MP3)</option>
                         </select>
                     </div>
-                    
-                    <div class="option-group">
-                        <label>Quality:</label>
-                        <select id="qualitySelect"></select>
+                    <div class="field-group inline-group">
+                        <label for="batchQualitySelect">Batch quality</label>
+                        <select id="batchQualitySelect">
+                            <option value="highest">Highest available</option>
+                            <option value="lowest">Lowest available</option>
+                            <option value="highestaudio">Best audio</option>
+                        </select>
+                    </div>
+                    <div class="action-row wrap">
+                        <button id="downloadBatchButton" class="primary-button" disabled>Make ZIP</button>
+                        <button id="clearBatchButton" class="ghost-button">Empty Batch</button>
                     </div>
                 </div>
-
-                <div class="button-group">
-                    <button onclick="downloadSingle()" class="btn-primary">⬇️ Download Single</button>
-                    <button onclick="addToBatch()" class="btn-secondary">➕ Add to Batch</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Batch Download Section -->
-        <div id="batchSection">
-            <h2>📦 Batch Download (<span id="batchCount">0</span> videos)</h2>
-            <div id="batchList"></div>
-            <div class="batch-controls">
-                <button onclick="downloadBatch()" class="btn-batch" id="batchBtn" style="display:none;">
-                    ⬇️ Download All as ZIP
-                </button>
-                <button onclick="clearBatch()" class="btn-clear">🗑️ Clear All</button>
-            </div>
-        </div>
+            </section>
+        </main>
     </div>
+
+    <div id="notification" class="toast hidden"></div>
+
     <script src="script.js"></script>
 </body>
 </html>
