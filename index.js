@@ -149,7 +149,7 @@ const getDefaultYtdlpFlags = () => {
         geoBypass: true,
 
         userAgent:
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36',
 
         referer: 'https://www.youtube.com/',
 
@@ -750,7 +750,7 @@ const { execSync } = require("child_process");
 
 app.get("/yt-version", (req, res) => {
     try {
-        const version = execSync("./node_modules/.bin/yt-dlp --version").toString();
+        const version = execSync("./node_modules/yt-dlp-exec/bin/yt-dlp --version").toString();
         res.send(version);
     } catch (e) {
         res.status(500).send(e.toString());
