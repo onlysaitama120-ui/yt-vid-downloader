@@ -272,35 +272,23 @@ app.get('/search', async (req, res) => {
     }
 });
 
-// ==================== VIDEO INFO (FORCED PC WORKER) ====================
+// ==================== VIDEO INFO ====================
 app.get('/info', async (req, res) => {
     const url = req.query.url;
     if (!url) {
         return res.status(400).json({ error: 'URL required' });
     }
 
-    // MUST use PC worker
-    if (!PC_WORKER_URL) {
-        return res.status(500).json({ error: 'PC Worker not configured. Set PC_WORKER_URL environment variable.' });
-    }
-
-    if (!pcOnline) {
-        return res.status(503).json({ error: 'PC Worker is offline. Start your PC and run node worker.js' });
-    }
-
+    // USE LOCAL YT-DLP ON RENDER - THIS IS WHAT WORKS
+    console.log('📋 Getting video info using Render local yt-dlp');
     try {
-        console.log('🔄 Getting video info from PC worker');
-        const response = await axios.get(`${PC_WORKER_URL}/info`, {
-            params: { url },
-            timeout: 15000
-        });
-        res.json(response.data);
-    } catch (error) {
-        console.error('❌ PC worker info failed:', error.message);
+        const info = await getYtdlpInfo(url);
+        res.json(info);
+    } catch (err) {
+        console.error('Info error:', err);
         res.status(500).json({ 
-            error: 'PC Worker failed to get video info',
-            details: error.message,
-            pcWorkerUrl: PC_WORKER_URL
+            error: formatYtdlpError(err),
+            fallback: 'Render local yt-dlp failed'
         });
     }
 });
@@ -315,38 +303,62 @@ app.get('/download/single', async (req, res) => {
         return res.status(400).json({ error: 'URL required' });
     }
 
-    if (!PC_WORKER_URL || !pcOnline) {
-        return res.status(503).json({ 
-            error: 'PC Worker is offline. Start your PC and run node worker.js' 
-        });
+    // TRY PC WORKER FIRST FOR DOWNLOAD ONLY
+    if (pcOnline && PC_WORKER_URL) {
+        console.log('🔄 Using PC worker for download:', { url, type, quality });
+        try {
+            const response = await axios({
+                method: 'GET',
+                url: `${PC_WORKER_URL}/download/single`,
+                params: { url, type, quality },
+                responseType: 'stream',
+                timeout: 300000,
+                validateStatus: (status) => status < 500
+            });
+
+            if (response.headers['content-disposition']) {
+                res.setHeader('Content-Disposition', response.headers['content-disposition']);
+            }
+            if (response.headers['content-type']) {
+                res.setHeader('Content-Type', response.headers['content-type']);
+            }
+
+            response.data.pipe(res);
+            console.log('✅ PC worker download successful');
+            return;
+        } catch (error) {
+            console.error('❌ PC worker download failed:', error.message);
+        }
     }
 
-    console.log('🔄 Using PC worker for download:', { url, type, quality });
+    // FALLBACK: Local yt-dlp download on Render
+    console.log('⚠️ Using local yt-dlp for download (fallback)');
     try {
-        const response = await axios({
-            method: 'GET',
-            url: `${PC_WORKER_URL}/download/single`,
-            params: { url, type, quality },
-            responseType: 'stream',
-            timeout: 300000,
-            validateStatus: (status) => status < 500
-        });
+        const info = await getYtdlpInfo(url);
+        const title = sanitizeFileName(info.title || info.fulltitle || 'video');
+        const extension = type === 'video' ? 'mp4' : 'mp3';
+        const filename = `${title}.${extension}`;
 
-        if (response.headers['content-disposition']) {
-            res.setHeader('Content-Disposition', response.headers['content-disposition']);
-        }
-        if (response.headers['content-type']) {
-            res.setHeader('Content-Type', response.headers['content-type']);
+        res.setHeader('Content-Disposition', createContentDisposition(filename));
+        res.setHeader('Content-Type', type === 'video' ? 'video/mp4' : 'audio/mpeg');
+
+        if (req.method === 'HEAD') {
+            return res.end();
         }
 
-        response.data.pipe(res);
-        console.log('✅ PC worker download successful');
-    } catch (error) {
-        console.error('❌ PC worker download failed:', error.message);
-        res.status(500).json({ 
-            error: 'PC Worker download failed',
-            details: error.message
-        });
+        await streamYtdlpDownload(url, type, quality, res);
+        console.log('✅ Local download finished');
+    } catch (err) {
+        console.error('❌ Local download error:', err);
+        const message = formatYtdlpError(err);
+        if (!res.headersSent) {
+            res.status(500).json({
+                error: message || 'Download failed',
+                fallback: !pcOnline ? 'PC worker offline' : 'PC worker unavailable'
+            });
+        } else if (!res.writableEnded) {
+            res.end();
+        }
     }
 });
 
@@ -358,34 +370,92 @@ app.post('/download/batch', async (req, res) => {
         return res.status(400).json({ error: 'No URLs provided' });
     }
 
-    if (!PC_WORKER_URL || !pcOnline) {
-        return res.status(503).json({ 
-            error: 'PC Worker is offline. Start your PC and run node worker.js' 
-        });
+    // Try PC worker first if available
+    if (pcOnline && PC_WORKER_URL) {
+        console.log('🔄 Using PC worker for batch download');
+        try {
+            const response = await axios({
+                method: 'POST',
+                url: `${PC_WORKER_URL}/download/batch`,
+                data: { urls, type, quality },
+                responseType: 'stream',
+                timeout: 600000,
+                validateStatus: (status) => status < 500
+            });
+
+            res.setHeader('Content-Disposition', response.headers['content-disposition'] || 'attachment; filename="videos.zip"');
+            res.setHeader('Content-Type', response.headers['content-type'] || 'application/zip');
+
+            response.data.pipe(res);
+            console.log('✅ PC worker batch download successful');
+            return;
+        } catch (error) {
+            console.error('❌ PC worker batch download failed:', error.message);
+        }
     }
 
-    console.log('🔄 Using PC worker for batch download');
+    // Fallback: Local batch download
+    console.log('⚠️ Using local batch download (fallback)');
+    const tempFiles = [];
+    const zipFileName = `batch_${Date.now()}.zip`;
+    const zipPath = path.join(TEMP_DIR, zipFileName);
+
     try {
-        const response = await axios({
-            method: 'POST',
-            url: `${PC_WORKER_URL}/download/batch`,
-            data: { urls, type, quality },
-            responseType: 'stream',
-            timeout: 600000,
-            validateStatus: (status) => status < 500
+        for (let i = 0; i < urls.length; i++) {
+            const url = urls[i];
+            try {
+                const downloaded = await downloadToTempFile(url, type, quality);
+                tempFiles.push({
+                    path: downloaded.path,
+                    name: `${i + 1}_${downloaded.title}.${downloaded.extension}`,
+                });
+            } catch (err) {
+                console.error(`Failed to download ${url}`, err);
+            }
+        }
+
+        if (tempFiles.length === 0) {
+            return res.status(500).json({
+                error: 'All downloads failed',
+                fallback: !pcOnline ? 'PC worker offline' : 'PC worker unavailable'
+            });
+        }
+
+        const output = fs.createWriteStream(zipPath);
+        const archive = await createArchive();
+
+        const archivePromise = new Promise((resolve, reject) => {
+            output.on('close', resolve);
+            output.on('error', reject);
+            archive.on('error', reject);
         });
 
-        res.setHeader('Content-Disposition', response.headers['content-disposition'] || 'attachment; filename="videos.zip"');
-        res.setHeader('Content-Type', response.headers['content-type'] || 'application/zip');
-
-        response.data.pipe(res);
-        console.log('✅ PC worker batch download successful');
-    } catch (error) {
-        console.error('❌ PC worker batch download failed:', error.message);
-        res.status(500).json({ 
-            error: 'PC Worker batch download failed',
-            details: error.message
+        archive.pipe(output);
+        tempFiles.forEach(file => {
+            archive.file(file.path, { name: file.name });
         });
+
+        await archive.finalize();
+        await archivePromise;
+
+        res.download(zipPath, zipFileName, (err) => {
+            try {
+                if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
+                tempFiles.forEach(file => {
+                    if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+                });
+            } catch (cleanupError) {
+                console.error('Cleanup error:', cleanupError);
+            }
+            if (err) {
+                console.error('ZIP send error:', err);
+            }
+        });
+
+        console.log('✅ Local batch download finished');
+    } catch (err) {
+        console.error('Batch download error:', err);
+        res.status(500).json({ error: formatYtdlpError(err) });
     }
 });
 
@@ -395,7 +465,7 @@ app.get('/api/status', (req, res) => {
         pcOnline: pcOnline,
         pcWorkerConfigured: !!PC_WORKER_URL,
         downloadMode: pcOnline ? 'residential' : 'cloud',
-        message: pcOnline ? 'Using residential IP for downloads' : 'PC Worker offline',
+        message: pcOnline ? 'Using residential IP for downloads' : 'Using cloud IP (may be blocked)',
         pcWorkerUrl: PC_WORKER_URL ? 'configured' : 'not configured'
     });
 });
@@ -441,6 +511,17 @@ app.get('/health', (req, res) => {
         pcWorkerAvailable: pcOnline,
         timestamp: new Date().toISOString()
     });
+});
+
+// ==================== YT-DLP VERSION ====================
+const { execSync } = require('child_process');
+app.get('/yt-version', (req, res) => {
+    try {
+        const version = execSync('./node_modules/yt-dlp-exec/bin/yt-dlp --version').toString();
+        res.send(version);
+    } catch (e) {
+        res.status(500).send(e.toString());
+    }
 });
 
 // ==================== START SERVER ====================
