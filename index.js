@@ -299,6 +299,36 @@ const downloadToTempFile = async (
     };
 };
 
+// ==================== SEARCH ====================
+
+app.get('/search', async (req, res) => {
+
+    const query = req.query.q;
+
+    if (!query) {
+        return res
+            .status(400)
+            .json({ error: 'Query required' });
+    }
+
+    try {
+
+        const result = await ytSearch(query);
+
+        res.json(result.videos.slice(0, 20));
+
+    } catch (error) {
+
+        console.error('Search error:', error);
+
+        res.status(500).json({
+            error: error.message,
+        });
+
+    }
+
+});
+
 // ==================== VIDEO INFO ====================
 app.use(
     "/info",
