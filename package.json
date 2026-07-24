@@ -13,6 +13,7 @@
   "type": "commonjs",
   "dependencies": {
     "archiver": "^8.0.0",
+    "axios": "^1.7.0",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "http-proxy-middleware": "^3.0.7",
