@@ -107,6 +107,7 @@ app.get("/info", async (req, res) => {
     }
 
     try {
+        console.log(`📋 Getting info for: ${url}`);
         const info = await getYtdlpInfo(url);
         res.json(info);
     } catch (error) {
