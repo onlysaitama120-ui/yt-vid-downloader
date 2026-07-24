@@ -89,9 +89,18 @@ const getCookieFilePath = () => {
     const renderSecret = '/etc/secrets/youtube.com_cookies.txt';
 
     if (fs.existsSync(renderSecret)) {
-        console.log('✅ Using Render Secret File');
-        return renderSecret;
-    }
+
+    const tempCookie = path.join(
+        TEMP_DIR,
+        'yt-dlp-cookies.txt'
+    );
+
+    fs.copyFileSync(renderSecret, tempCookie);
+
+    console.log('✅ Using copied Render Secret File');
+
+    return tempCookie;
+}
 
     // Local cookie file
     const localCookie = path.join(__dirname, 'youtube.com_cookies.txt');
