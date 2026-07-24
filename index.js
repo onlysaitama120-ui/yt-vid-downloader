@@ -272,12 +272,29 @@ app.get('/search', async (req, res) => {
     }
 });
 
-// ==================== VIDEO INFO ====================
+// ==================== VIDEO INFO (VIA PC WORKER) ====================
 app.get('/info', async (req, res) => {
     const url = req.query.url;
     if (!url) {
         return res.status(400).json({ error: 'URL required' });
     }
+
+    // Try PC worker first
+    if (pcOnline && PC_WORKER_URL) {
+        console.log('🔄 Getting video info from PC worker');
+        try {
+            const response = await axios.get(`${PC_WORKER_URL}/info`, {
+                params: { url },
+                timeout: 15000
+            });
+            return res.json(response.data);
+        } catch (error) {
+            console.error('❌ PC worker info failed:', error.message);
+        }
+    }
+
+    // Fallback to local yt-dlp (will likely fail)
+    console.log('⚠️ Getting video info from Render (may be blocked)');
     try {
         const info = await getYtdlpInfo(url);
         res.json(info);

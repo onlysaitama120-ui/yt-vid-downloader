@@ -17,7 +17,7 @@ app.get("/", (req, res) => {
     res.json({
         status: "ok",
         message: "YouTube Downloader Worker is running",
-        endpoints: ["/health", "/download/single", "/download/batch"],
+        endpoints: ["/health", "/info", "/download/single", "/download/batch"],
         timestamp: new Date().toISOString()
     });
 });
@@ -78,6 +78,14 @@ const createDownloadFormat = (type, quality) => {
     return quality;
 };
 
+const getYtdlpInfo = async (url) => {
+    return await youtubedl(url, {
+        ...getDefaultYtdlpFlags(),
+        dumpSingleJson: true,
+        skipDownload: true,
+    });
+};
+
 // ==================== HEALTH CHECK ====================
 app.get("/health", (req, res) => {
     const cookiePath = getCookieFilePath();
@@ -91,6 +99,22 @@ app.get("/health", (req, res) => {
     });
 });
 
+// ==================== VIDEO INFO ====================
+app.get("/info", async (req, res) => {
+    const url = req.query.url;
+    if (!url) {
+        return res.status(400).json({ error: "URL required" });
+    }
+
+    try {
+        const info = await getYtdlpInfo(url);
+        res.json(info);
+    } catch (error) {
+        console.error("Info error:", error);
+        res.status(500).json({ error: error.message || "Failed to get video info" });
+    }
+});
+
 // ==================== SINGLE DOWNLOAD ====================
 app.get("/download/single", async (req, res) => {
     const { url, type = "video", quality = "highest" } = req.query;
@@ -100,11 +124,7 @@ app.get("/download/single", async (req, res) => {
     }
 
     try {
-        const info = await youtubedl(url, {
-            ...getDefaultYtdlpFlags(),
-            dumpSingleJson: true,
-            skipDownload: true,
-        });
+        const info = await getYtdlpInfo(url);
 
         const title = sanitizeFileName(info.title || info.fulltitle || "video");
         const extension = type === "video" ? "mp4" : "mp3";
@@ -171,11 +191,7 @@ app.post("/download/batch", async (req, res) => {
         for (let i = 0; i < urls.length; i++) {
             const url = urls[i];
             try {
-                const info = await youtubedl(url, {
-                    ...getDefaultYtdlpFlags(),
-                    dumpSingleJson: true,
-                    skipDownload: true,
-                });
+                const info = await getYtdlpInfo(url);
 
                 const title = sanitizeFileName(info.title || info.fulltitle || `video_${i}`);
                 const extension = type === "video" ? "mp4" : "mp3";
