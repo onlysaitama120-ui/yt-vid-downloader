@@ -746,6 +746,16 @@ app.get('/health', (req, res) => {
 });
 
 // ==================== START SERVER ====================
+const { execSync } = require("child_process");
+
+app.get("/yt-version", (req, res) => {
+    try {
+        const version = execSync("./node_modules/.bin/yt-dlp --version").toString();
+        res.send(version);
+    } catch (e) {
+        res.status(500).send(e.toString());
+    }
+});
 
 app.listen(PORT, HOST, () => {
 
