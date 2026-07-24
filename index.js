@@ -6,6 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const crypto = require('crypto');
+const { createProxyMiddleware } = require("http-proxy-middleware");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -440,6 +441,7 @@ app.get('/info', async (req, res) => {
     }
 
 });
+/*
 // ==================== DOWNLOAD SINGLE ====================
 
 app.get('/download/single', async (req, res) => {
@@ -716,7 +718,22 @@ app.post('/download/batch', async (req, res) => {
     }
 
 });
+*/
 
+app.use(
+    "/download",
+    createProxyMiddleware({
+        target: "https://subaru.tail32026a.ts.net",
+        changeOrigin: true,
+        secure: true,
+        ws: false,
+        proxyTimeout: 0,
+        timeout: 0,
+        pathRewrite: {
+            "^/download": "/download"
+        }
+    })
+);
 // ==================== SERVE FRONTEND ====================
 
 app.get('/', (req, res) => {
