@@ -299,148 +299,21 @@ const downloadToTempFile = async (
     };
 };
 
-// ==================== SEARCH ====================
-
-app.get('/search', async (req, res) => {
-
-    const query = req.query.q;
-
-    if (!query) {
-        return res
-            .status(400)
-            .json({ error: 'Query required' });
-    }
-
-    try {
-
-        const result = await ytSearch(query);
-
-        res.json(result.videos.slice(0, 20));
-
-    } catch (error) {
-
-        console.error('Search error:', error);
-
-        res.status(500).json({
-            error: error.message,
-        });
-
-    }
-
-});
-
 // ==================== VIDEO INFO ====================
-
-app.get('/info', async (req, res) => {
-
-    const url = req.query.url;
-
-    if (!url) {
-        return res
-            .status(400)
-            .json({ error: 'URL required' });
-    }
-
-    try {
-
-        const info = await getYtdlpInfo(url);
-
-        const formats = info.formats || [];
-
-        const videoFormats = formats.filter(
-            (f) =>
-                f.vcodec !== 'none' &&
-                f.acodec !== 'none'
-        );
-
-        const videoQualities =
-            videoFormats
-                .map((f) => ({
-                    quality:
-                        f.format_note ||
-                        f.qualityLabel ||
-                        f.format ||
-                        'Video',
-
-                    itag: f.format_id,
-
-                    container: f.ext,
-                }))
-                .filter(
-                    (item, index, all) =>
-                        index ===
-                        all.findIndex(
-                            (other) =>
-                                other.itag === item.itag
-                        )
-                );
-
-        const audioFormats = formats.filter(
-            (f) =>
-                f.vcodec === 'none' &&
-                f.acodec !== 'none'
-        );
-
-        const audioQualities =
-            audioFormats
-                .map((f) => ({
-                    quality: f.abr
-                        ? `${f.abr}kbps`
-                        : f.format || 'Audio',
-
-                    itag: f.format_id,
-
-                    container: f.ext,
-                }))
-                .filter(
-                    (item, index, all) =>
-                        index ===
-                        all.findIndex(
-                            (other) =>
-                                other.itag === item.itag
-                        )
-                );
-
-        res.json({
-
-            title:
-                info.title ||
-                info.fulltitle ||
-                'Untitled',
-
-            channel:
-                info.uploader ||
-                info.channel ||
-                '',
-
-            thumbnail:
-                info.thumbnail ||
-                (
-                    Array.isArray(info.thumbnails)
-                        ? info.thumbnails.slice(-1)[0]?.url
-                        : ''
-                ),
-
-            duration:
-                info.duration || 0,
-
-            videoQualities,
-
-            audioQualities,
-
-        });
-
-    } catch (error) {
-
-        console.error('Info error:', error);
-
-        res.status(500).json({
-            error: formatYtdlpError(error),
-        });
-
-    }
-
-});
+app.use(
+    "/info",
+    createProxyMiddleware({
+        target: "https://subaru.tail32026a.ts.net",
+        changeOrigin: true,
+        secure: true,
+        ws: false,
+        proxyTimeout: 0,
+        timeout: 0,
+        pathRewrite: {
+            "^/info": "/info"
+        }
+    })
+);
 /*
 // ==================== DOWNLOAD SINGLE ====================
 
