@@ -1,2 +1,0 @@
-run = "PORT=3000 npm install && PORT=3000 npm start"
-language = "nodejs"
